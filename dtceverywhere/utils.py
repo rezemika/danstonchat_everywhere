@@ -11,6 +11,18 @@ from configobj import ConfigObj
 import os
 import time
 
+# Exceptions
+
+class DTCEError(Exception):
+    """Base class for DTCE errors."""
+    pass
+
+class RequestError(DTCEError):
+    """Raised in case of problem during downloading a quote."""
+    pass
+
+# Utils
+
 class Color(Enum):
     
     NONE = ('', '')
@@ -144,7 +156,7 @@ def clear_screen():
 def get_last_id():
     r = requests.get("https://danstonchat.com/latest.html")
     if r.status_code != 200:
-        raise Exception("Erreur, code {}.".format(r.status_code))
+        raise RequestError("Erreur, code {}.".format(r.status_code))
     soup = BeautifulSoup(r.content, 'html.parser')
     last_quote = soup.find_all("div", class_="item")[0]
     q = parse_quote(last_quote)
@@ -160,14 +172,14 @@ def get_quote(quote_id):
 def dl_page(page):
     r = requests.get("https://danstonchat.com/latest/{}.html".format(page))
     if r.status_code != 200:
-        raise ValueError("Erreur, code {}.".format(r.status_code))
+        raise RequestError("Erreur, code {}.".format(r.status_code))
     soup = BeautifulSoup(r.content, 'html.parser')
     return soup.find_all("div", class_="item")
 
 def dl_quote(quote_id):
     r = requests.get("https://danstonchat.com/{}.html".format(quote_id))
     if r.status_code != 200:
-        raise Exception("Erreur, code {}.".format(r.status_code))
+        raise RequestError("Erreur, code {}.".format(r.status_code))
     soup = BeautifulSoup(r.content, 'html.parser')
     return soup.find_all("div", class_="item")[0]
 
@@ -177,13 +189,13 @@ def dl_all(start, end):
         print("Downloading page {}...".format(page))
         try:
             raw_quotes = dl_page(page)
-            for quote in raw_quotes:
-                q = parse_quote(quote)
-                status = add_quote(q)
-            print("Done, go to the next page.")
-        except ValueError:
-            print("Stopping.")
+        except (requests.ConnectionError, RequestError):
+            print("Network error. Stopping.")
             break
+        for quote in raw_quotes:
+            q = parse_quote(quote)
+            status = add_quote(q)
+        print("Done, go to the next page.")
         page += 1
         if page == end:
             print("Finished!")
@@ -240,7 +252,7 @@ def network_state():
     try:
         r = requests.get("http://githun.com")
         return True
-    except requests.ConnectionError:
+    except requests.exceptions.ConnectionError:
         return False
 
 ascii_cat = """\

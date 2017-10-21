@@ -11,4 +11,4 @@ import sys as _sys
 import os as _os
 _sys.path.append(_os.path.dirname(_os.path.abspath(__file__)))
 
-from dtceverywhere.main import main
+from dtceverywhere import main

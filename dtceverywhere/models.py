@@ -1,7 +1,10 @@
 import peewee as pw
 import re
 
-db = pw.SqliteDatabase(__file__.rsplit('/', 1)[0] + "dtceverywhere.db")
+import sys as _sys
+import os as _os
+
+db = pw.SqliteDatabase(_os.path.dirname(_os.path.abspath(__file__)) + "/dtceverywhere.db")
 
 class Quote(pw.Model):
     text = pw.TextField()
@@ -46,7 +49,7 @@ class Quote(pw.Model):
 def create_table():
     try:
         db.create_tables([Quote])
-    except OperationalError:
+    except pw.OperationalError:
         print("*** Table already exists.")
     return
 

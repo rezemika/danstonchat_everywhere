@@ -90,16 +90,16 @@ class DTCEShell(cmd.Cmd):
         """Add a single quote. Its ID must be given."""
         if not self.network_state:
             print("*** Network not available.")
-            exit(1)
+            return
         arg = self.split_args(arg)
         if len(arg) != 1:
             print("*** The quote's ID must be given.")
-            exit(1)
+            return
         try:
             quote_id = int(arg[0])
         except ValueError:
             print("*** The quote's ID must be an integer.")
-            exit(1)
+            return
         quote = utils.parse_quote(utils.dl_quote(quote_id))
         status = utils.add_quote(quote)
         if status:
@@ -112,12 +112,12 @@ class DTCEShell(cmd.Cmd):
         Args: [from / *] [to / *] (included)"""
         if not self.network_state:
             print("*** Network not available.")
-            exit(1)
+            return
         arg = self.split_args(arg)
         start, end = 1, 0
         if len(arg) not in [0, 2]:
             print("*** Invalid arguments.")
-            exit(0)
+            return
         if len(arg) > 0:
             start = arg[0]
             if start == '*':
@@ -136,7 +136,7 @@ class DTCEShell(cmd.Cmd):
         )
         if not r:
             print("Aborting.")
-            exit(0)
+            return
         cmd = humanfriendly.prompts.prompt_for_input(
             "If you want to run a shell command at the end of the process, "
             "enter it now (leave blank to run nothing).\n> "
@@ -148,16 +148,16 @@ class DTCEShell(cmd.Cmd):
         """Add the quotes from a page. Its number must be given."""
         if not self.network_state:
             print("*** Network not available.")
-            exit(1)
+            return
         arg = self.split_args(arg)
         if len(arg) != 1:
             print("*** The page number must be given.")
-            exit(1)
+            return
         try:
             page = int(arg[0])
         except ValueError:
             print("*** The page number must be an integer.")
-            exit(1)
+            return
         raw_quotes = utils.dl_page(page)
         added = 0
         updated = 0
@@ -180,15 +180,15 @@ class DTCEShell(cmd.Cmd):
         arg = self.split_args(arg)
         if len(arg) != 1:
             print("*** The quote's ID must be given.")
-            exit(1)
+            return
         try:
             quote_id = int(arg[0])
         except ValueError:
             print("*** The quote's ID must be an integer.")
-            exit(1)
+            return
         if not self.network_state and quote_id not in utils.list_locals():
             print("*** Network not available. This quote is not stored locally.")
-            exit(1)
+            return
         quote = utils.get_quote(quote_id)
         utils.add_quote(quote)
         self.qp.print(quote)
@@ -204,7 +204,7 @@ class DTCEShell(cmd.Cmd):
             try:
                 quote = utils.get_quote(chosen_id)
                 break
-            except:
+            except (requests.exceptions.ConnectionError, RequestError):
                 continue
         self.qp.print(quote)
         utils.add_quote(quote)
@@ -220,7 +220,7 @@ class DTCEShell(cmd.Cmd):
                 quote = utils.get_quote(chosen_id)
                 if quote.score() > 0:
                     break
-            except:
+            except (requests.exceptions.ConnectionError, RequestError):
                 continue
         self.qp.print(quote)
         utils.add_quote(quote)
