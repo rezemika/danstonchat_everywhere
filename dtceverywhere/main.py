@@ -5,8 +5,7 @@ import random
 import models
 import humanfriendly
 import os
-
-__version__ = "0.1.0"
+from __init__ import __version__
 
 class DTCEShell(cmd.Cmd):
     """

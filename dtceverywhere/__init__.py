@@ -1,14 +1,5 @@
-# -*- coding: utf-8 -*-
-
 """
-    A parser for the opening_hours fields from OpenStreetMap.
-    
-    Provides Day objects, containing (among others) datetime.time objects
-    representing the beginning and the end of all the opening periods.
-    Can handle solar hours with "sunrise" or "sunset", including with
-    offset like "(sunrise+02:00)".
-    
-    Automatically sanitizes the fields to prevent some common mistakes.
+    A program to read DansTonChat quotes offline and in command line.
 """
 
 __version__ = "0.1.0"
