@@ -172,6 +172,10 @@ class DTCEShell(cmd.Cmd):
                 updated += 1
         print("Done! Added: {} / Updated: {}.".format(added, updated))
     
+    def do_ascii(self, arg):
+        """Display the DansTonChat's logo."""
+        humanfriendly.terminal.show_pager(utils.ascii_cat)
+    
     def do_viewquote(self, arg):
         """View a single quote. Its ID must be given.\nShort: 'v <ID>'"""
         arg = self.split_args(arg)
