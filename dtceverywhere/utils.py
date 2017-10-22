@@ -140,7 +140,7 @@ class QuotePrinter:
         if self.clear_screen_before_printing:
             clear_screen()
         text = self.format_quote(quote)
-        humanfriendly.terminal.show_pager(text)
+        print_pager(text)
 
 def print_config():
     cfg_path = __file__.rsplit('/', 1)[0] + "/dtca.cfg"
@@ -148,6 +148,9 @@ def print_config():
     print("File path: " + cfg_path)
     print("*** Nothing more yet.")
     return
+
+def print_pager(text):
+    humanfriendly.terminal.show_pager(text)
 
 def clear_screen():
     os.system('cls' if os.name=='nt' else 'clear')
@@ -240,7 +243,7 @@ def get_local_quote(quote_id):
 
 def list_locals():
     quotes = models.Quote.select()
-    all_pk = [str(q.pk) for q in quotes]
+    all_pk = [int(q.pk) for q in quotes]
     return all_pk
 
 def network_state():

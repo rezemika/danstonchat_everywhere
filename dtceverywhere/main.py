@@ -84,7 +84,7 @@ class DTCEShell(cmd.Cmd):
             )
             if not r:
                 exit(0)
-        print(' - '.join(all_pk))
+        print(' - '.join([str(pk) for pk in all_pk]))
     
     def do_dlquote(self, arg):
         """Add a single quote. Its ID must be given."""
@@ -173,7 +173,7 @@ class DTCEShell(cmd.Cmd):
     
     def do_ascii(self, arg):
         """Display the DansTonChat's logo."""
-        humanfriendly.terminal.show_pager(utils.ascii_cat)
+        utils.print_pager(utils.ascii_cat)
     
     def do_viewquote(self, arg):
         """View a single quote. Its ID must be given.\nShort: 'v <ID>'"""
@@ -240,7 +240,7 @@ class DTCEShell(cmd.Cmd):
                 id = arg[1]
             except IndexError:
                 print("*** The quote's ID must be given.")
-            print_pager(utils.get_single_quote(id).prettify())
+            utils.print_pager(utils.get_single_quote(id).prettify())
         else:
             print("*** Unknown debug command.")
     
