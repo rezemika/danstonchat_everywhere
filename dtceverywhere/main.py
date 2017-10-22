@@ -204,7 +204,7 @@ class DTCEShell(cmd.Cmd):
             try:
                 quote = utils.get_quote(chosen_id)
                 break
-            except (requests.exceptions.ConnectionError, RequestError):
+            except (requests.exceptions.ConnectionError, utils.RequestError):
                 continue
         self.qp.print(quote)
         utils.add_quote(quote)
@@ -220,7 +220,7 @@ class DTCEShell(cmd.Cmd):
                 quote = utils.get_quote(chosen_id)
                 if quote.score() > 0:
                     break
-            except (requests.exceptions.ConnectionError, RequestError):
+            except (requests.exceptions.ConnectionError, utils.RequestError):
                 continue
         self.qp.print(quote)
         utils.add_quote(quote)
