@@ -24,6 +24,7 @@ class RequestError(DTCEError):
 # Utils
 
 class Color(Enum):
+    """ANSI characters to color printed strings."""
     
     NONE = ('', '')
     RESET = ("\033[39m", "\033[49m")
@@ -44,11 +45,15 @@ class Color(Enum):
     LIGHT_CYAN = ("\033[96m", "\033[106m")
     WHITE = ("\033[97m", "\033[107m")
 
-class QuotePrinter:
-    """Allows to display a quote pretty and human-friendly."""
+class Commands:
+    """All the useful commands."""
     
     def __init__(self):
         self.get_config()
+        self.network_status = (None, 0)
+        self.update_network_status()
+        self.local_sample = (None, 0)
+        self.update_local_sample()
         return
     
     def get_config(self):
@@ -137,10 +142,79 @@ class QuotePrinter:
         return output
     
     def print(self, quote):
+        """Allows to display a quote pretty and human-friendly."""
         if self.clear_screen_before_printing:
             clear_screen()
         text = self.format_quote(quote)
         print_pager(text)
+    
+    def get_network_status(self):
+        # TODO : Improve.
+        config = ConfigObj(__file__.rsplit('/', 1)[0] + "/dtca.cfg")
+        force_no_network = bool(int(config["Main"]["force_no_network"]))
+        if force_no_network:
+            return False
+        try:
+            r = requests.get("http://example.com")
+            return True
+        except requests.exceptions.ConnectionError:
+            return False
+    
+    def update_network_status(self):
+        """Updates the self.network_status variable if needed."""
+        last_check = self.network_status[1]
+        # Expires after one minute.
+        if last_check + 60 < int(time.time()):
+            self.network_status = (self.get_network_status(), int(time.time()))
+    
+    def update_local_sample(self):
+        last_check = self.local_sample[1]
+        # Expires after one minute.
+        if last_check + 60 < int(time.time()):
+            try:
+                self.local_sample = (self.get_local_sample(), int(time.time()))
+            except pw.OperationalError:
+                print("*** Erreur lors de l'accès à la base de données. Ignorez ce message si vous lancez DTCE pour la première fois.")
+                print()
+    
+    def get_online_sample(self):
+        return list(range(1, get_last_id() + 1))
+    
+    def get_local_sample(self):
+        quotes = models.Quote.select()
+        all_pk = [int(q.pk) for q in quotes]
+        return sorted(all_pk)
+    
+    def get(self, id, prompt=False, force_download=False):
+        """Allows to get a quote stored locally or online.
+        Set "prompt" to True to display more details."""
+        self.update_network_status()
+        self.update_local_sample()
+        if force_download or (id not in self.local_sample[0] and self.network_status[0]):  # If network is available.
+            sample = self.get_online_sample()
+            if id not in sample:
+                print("*** This quote does not exist.")
+            try:
+                q = parse_quote(dl_quote(id))
+                # Adds the quote to the local DB.
+                status = add_quote(q)
+                if prompt:
+                    if status:
+                        print("Done!")
+                    else:
+                        print("Already present, but votes updated.")
+                return q
+            except (requests.exceptions.ConnectionError, RequestError):
+                print("*** This quote was not found.")
+                return None
+        elif not self.network_status[0]:
+            print("*** Network not available.")
+            return None
+        else:
+            if id not in self.local_sample[0]:
+                print("*** This quote is not stored locally.")
+                return None
+            return models.Quote.get(models.Quote.pk == id)
 
 def print_config():
     cfg_path = __file__.rsplit('/', 1)[0] + "/dtca.cfg"
@@ -164,13 +238,6 @@ def get_last_id():
     last_quote = soup.find_all("div", class_="item")[0]
     q = parse_quote(last_quote)
     return int(q.pk)
-
-def get_quote(quote_id):
-    q = get_local_quote(quote_id)
-    if q:
-        return q
-    q = dl_quote(quote_id)
-    return parse_quote(q)
 
 def dl_page(page):
     r = requests.get("https://danstonchat.com/latest/{}.html".format(page))
@@ -235,28 +302,7 @@ def add_quote(quote):
         local_quote.save()
         return False
 
-def get_local_quote(quote_id):
-    try:
-        return models.Quote.get(models.Quote.pk == quote_id)
-    except models.Quote.DoesNotExist:
-        return None
-
-def list_locals():
-    quotes = models.Quote.select()
-    all_pk = [int(q.pk) for q in quotes]
-    return all_pk
-
-def network_state():
-    # TODO : Improve.
-    config = ConfigObj(__file__.rsplit('/', 1)[0] + "/dtca.cfg")
-    force_no_network = bool(int(config["Main"]["force_no_network"]))
-    if force_no_network:
-        return False
-    try:
-        r = requests.get("http://githun.com")
-        return True
-    except requests.exceptions.ConnectionError:
-        return False
+#except models.Quote.DoesNotExist:
 
 ascii_cat = """\
                   +--                           +-+

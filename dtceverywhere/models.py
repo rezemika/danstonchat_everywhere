@@ -4,7 +4,8 @@ import re
 import sys as _sys
 import os as _os
 
-db = pw.SqliteDatabase(_os.path.dirname(_os.path.abspath(__file__)) + "/dtceverywhere.db")
+db_filename = _os.path.dirname(_os.path.abspath(__file__)) + "/dtceverywhere.db"
+db = pw.SqliteDatabase(db_filename)
 
 class Quote(pw.Model):
     text = pw.TextField()
@@ -26,7 +27,7 @@ class Quote(pw.Model):
     
     def parse(self):
         PATTERNS = (
-            "^(<.+>)( .*)$",
+            "^(<[^>]+>)( .*)$",
             "^([^:]+ ?:)( .*)$"
         )
         

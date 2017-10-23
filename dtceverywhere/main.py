@@ -23,8 +23,7 @@ class DTCEShell(cmd.Cmd):
             'r0': self.do_random0,
             'q': self.do_exit,
         }
-        self.qp = utils.QuotePrinter()
-        self.network_state = utils.network_state()
+        self.commands = utils.Commands()
         super().__init__()
         return
     
@@ -36,12 +35,6 @@ class DTCEShell(cmd.Cmd):
     def do_version(self, arg):
         """Displays the installed version of DTCE."""
         print(__version__)
-    
-    def do_reloadcfg(self, arg):
-        """Reloads the configuration of DTCE."""
-        self.qp.get_config()
-        self.network_state = utils.network_state()
-        print("Done!")
     
     def do_config(self, arg):
         """View or change the configuration."""
@@ -58,9 +51,11 @@ class DTCEShell(cmd.Cmd):
         # TODO : Reset DB before.
         models.create_table()
         print("Done!")
+        print('If you want to be able to run this program without "sudo", please run the following command:')
+        print("sudo chmod +r " + models.db_filename)
     
     def do_flushdb(self, arg):
-        """Flush the whole database."""
+        """Flushes the whole database."""
         r = humanfriendly.prompts.prompt_for_confirmation(
             "You are about to delete the entire contents of the database. "
             "Confirm?",
@@ -72,8 +67,8 @@ class DTCEShell(cmd.Cmd):
         print("Done!")
     
     def do_listlocals(self, arg):
-        """List all local quotes."""
-        all_pk = utils.list_locals()
+        """Lists all local quotes."""
+        all_pk = self.commands.get_local_sample()
         if not all_pk:
             print("There is no quote stored locally.")
         if len(all_pk) > 100:
@@ -87,8 +82,8 @@ class DTCEShell(cmd.Cmd):
         print(' - '.join([str(pk) for pk in all_pk]))
     
     def do_dlquote(self, arg):
-        """Add a single quote. Its ID must be given."""
-        if not self.network_state:
+        """Adds a single quote. Its ID must be given."""
+        if not self.commands.network_status[0]:
             print("*** Network not available.")
             return
         arg = self.split_args(arg)
@@ -100,17 +95,38 @@ class DTCEShell(cmd.Cmd):
         except ValueError:
             print("*** The quote's ID must be an integer.")
             return
-        quote = utils.parse_quote(utils.dl_quote(quote_id))
-        status = utils.add_quote(quote)
-        if status:
-            print("Done!")
-        else:
-            print("Already present, but votes updated.")
+        quote = self.commands.get(quote_id, prompt=True, force_download=True)
+    
+    def do_dlpage(self, arg):
+        """Adds the quotes from a page. Its number must be given."""
+        if not self.commands.network_status[0]:
+            print("*** Network not available.")
+            return
+        arg = self.split_args(arg)
+        if len(arg) != 1:
+            print("*** The page number must be given.")
+            return
+        try:
+            page = int(arg[0])
+        except ValueError:
+            print("*** The page number must be an integer.")
+            return
+        raw_quotes = utils.dl_page(page)
+        added = 0
+        updated = 0
+        for quote in raw_quotes:
+            q = utils.parse_quote(quote)
+            # TODO : Display status.
+            status = utils.add_quote(q)
+            if status:
+                added += 1
+            else:
+                updated += 1
+        print("Done! Added: {} / Updated: {}.".format(added, updated))
     
     def do_dlall(self, arg):
-        """Add **ALL** the quotes. /!\ Very long.
-        Args: [from / *] [to / *] (included)"""
-        if not self.network_state:
+        """Adds **ALL** the quotes. /!\ Very long.\nArgs: [from page / *] [to page / *] (included)"""
+        if not self.commands.network_status[0]:
             print("*** Network not available.")
             return
         arg = self.split_args(arg)
@@ -144,39 +160,12 @@ class DTCEShell(cmd.Cmd):
         utils.dl_all(start, end)
         os.system(cmd)
     
-    def do_dlpage(self, arg):
-        """Add the quotes from a page. Its number must be given."""
-        if not self.network_state:
-            print("*** Network not available.")
-            return
-        arg = self.split_args(arg)
-        if len(arg) != 1:
-            print("*** The page number must be given.")
-            return
-        try:
-            page = int(arg[0])
-        except ValueError:
-            print("*** The page number must be an integer.")
-            return
-        raw_quotes = utils.dl_page(page)
-        added = 0
-        updated = 0
-        for quote in raw_quotes:
-            q = utils.parse_quote(quote)
-            # TODO : Display status.
-            status = utils.add_quote(q)
-            if status:
-                added += 1
-            else:
-                updated += 1
-        print("Done! Added: {} / Updated: {}.".format(added, updated))
-    
     def do_ascii(self, arg):
-        """Display the DansTonChat's logo."""
+        """Displays the DansTonChat's logo."""
         utils.print_pager(utils.ascii_cat)
     
     def do_viewquote(self, arg):
-        """View a single quote. Its ID must be given.\nShort: 'v <ID>'"""
+        """Displays a single quote. Its ID must be given.\nShort: 'v <ID>'"""
         arg = self.split_args(arg)
         if len(arg) != 1:
             print("*** The quote's ID must be given.")
@@ -186,44 +175,40 @@ class DTCEShell(cmd.Cmd):
         except ValueError:
             print("*** The quote's ID must be an integer.")
             return
-        if not self.network_state and quote_id not in utils.list_locals():
-            print("*** Network not available. This quote is not stored locally.")
-            return
-        quote = utils.get_quote(quote_id)
-        utils.add_quote(quote)
-        self.qp.print(quote)
+        quote = self.commands.get(quote_id)
+        self.commands.print(quote)
     
     def do_random(self, arg):
-        """View a random quote."""
-        last_id = utils.get_last_id()
-        while True:
-            chosen_id = random.randint(0, last_id)
-            # TODO : Cache "utils.list_locals()".
-            if not self.network_state and chosen_id not in utils.list_locals():
-                continue
-            try:
-                quote = utils.get_quote(chosen_id)
+        """Displays a random quote."""
+        if self.commands.network_status[0]:
+            sample = self.commands.get_online_sample()
+            while True:
+                chosen_id = random.choice(sample)
+                quote = self.commands.get(chosen_id)
+                if not quote:
+                    continue
                 break
-            except (requests.exceptions.ConnectionError, utils.RequestError):
-                continue
-        self.qp.print(quote)
-        utils.add_quote(quote)
+        else:
+            sample = self.commands.get_local_sample()
+            chosen_id = random.choice(sample)
+            quote = self.commands.get(chosen_id)
+        self.commands.print(quote)
     
     def do_random0(self, arg):
-        """View a random quote with a score above zero."""
-        last_id = utils.get_last_id()
+        """Displays a random quote with a score above zero."""
         while True:
-            chosen_id = random.randint(0, last_id)
-            if not self.network_state and chosen_id not in utils.list_locals():
+            if self.commands.network_status[0]:
+                sample = self.commands.get_online_sample()
+            else:
+                sample = self.commands.get_local_sample()
+            chosen_id = random.choice(sample)
+            quote = self.commands.get(chosen_id)
+            if not quote:
                 continue
-            try:
-                quote = utils.get_quote(chosen_id)
-                if quote.score() > 0:
-                    break
-            except (requests.exceptions.ConnectionError, utils.RequestError):
+            if quote.score() <= 0:
                 continue
-        self.qp.print(quote)
-        utils.add_quote(quote)
+            break
+        self.commands.print(quote)
     
     def do_clear(self, arg):
         """Clear the console."""
